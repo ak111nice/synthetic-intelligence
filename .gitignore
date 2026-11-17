@@ -27,4 +27,7 @@ venv/
 *.db
 *.sqlite
 *.sqlite3
+*.log
+scoreboard.json
+checkpoints/
 .DS_Store

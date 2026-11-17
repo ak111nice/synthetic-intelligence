@@ -4,6 +4,7 @@ Connects a real neural network to the Cerebral Engine and Spinal Sentinel.
 """
 
 from typing import Dict, Any, Optional
+import os
 import time
 
 try:
@@ -29,6 +30,7 @@ class Qwen05BRunner:
     ):
         self.model_name = model_name
         self.device = device
+        self.base_model = None
         self.model = None
         self.tokenizer = None
         self.is_loaded = False
@@ -45,20 +47,40 @@ class Qwen05BRunner:
             self.model_name,
             trust_remote_code=True,
         )
-        self.model = AutoModelForCausalLM.from_pretrained(
+        self.base_model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
             torch_dtype=torch.float32 if self.device == "cpu" else torch.float16,
             trust_remote_code=True,
         ).to(self.device)
 
         # Architectural Rule: Freeze Backbone! (requires_grad = False)
-        for param in self.model.parameters():
+        for param in self.base_model.parameters():
             param.requires_grad = False
 
-        self.model.eval()
+        self.base_model.eval()
+        self.model = self.base_model
         self.is_loaded = True
+
+        # Attach existing LoRA adapter if present
+        self.reload_adapter()
+
         elapsed = time.perf_counter() - start_t
         print(f"✓ Model loaded and backbone weights frozen in {elapsed:.2f}s.")
+
+    def reload_adapter(self, lora_checkpoint_dir: str = "./checkpoints/active_lora") -> None:
+        """Dynamically attach or reload evolved plastic LoRA weights."""
+        if not self.is_loaded:
+            return
+        if os.path.exists(os.path.join(lora_checkpoint_dir, "adapter_config.json")):
+            try:
+                from peft import PeftModel
+                self.model = PeftModel.from_pretrained(self.base_model, lora_checkpoint_dir)
+                for param in self.model.parameters():
+                    param.requires_grad = False
+                self.model.eval()
+                print(f"  ✓ Dynamic plastic LoRA adapter attached from '{lora_checkpoint_dir}'")
+            except Exception as e:
+                print(f"  ⚠️ Warning: Failed to reload LoRA adapter: {e}")
 
     def generate_action(self, prompt: str, max_new_tokens: int = 128) -> str:
         """Run forward inference on CPU to generate an action proposal."""
