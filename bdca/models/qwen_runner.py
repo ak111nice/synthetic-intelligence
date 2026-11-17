@@ -81,6 +81,16 @@ class Qwen05BRunner:
                 print(f"  ✓ Dynamic plastic LoRA adapter attached from '{lora_checkpoint_dir}'")
             except Exception as e:
                 print(f"  ⚠️ Warning: Failed to reload LoRA adapter: {e}")
+        else:
+            # Revert to base model if LoRA was merged or deleted
+            self.model = self.base_model
+            self.model.eval()
+
+    def switch_base_model(self, new_model_path: str) -> None:
+        """Promote newly baked generation model as the active inference backbone."""
+        print(f"\n[Cerebral Substrate Promotion] Upgrading base model to '{new_model_path}'...")
+        self.model_name = new_model_path
+        self.load()
 
     def generate_action(self, prompt: str, max_new_tokens: int = 128) -> str:
         """Run forward inference on CPU to generate an action proposal."""

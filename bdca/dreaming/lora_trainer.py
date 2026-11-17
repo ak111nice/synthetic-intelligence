@@ -144,3 +144,42 @@ class LoRASynapticTrainer:
             "samples": len(verified_pairs),
             "elapsed_sec": elapsed,
         }
+
+    def bake_and_promote_generation(self, generation: int, export_base_dir: str = "./models") -> str:
+        """
+        Merges plastic LoRA weights into the frozen base model,
+        exporting a permanent, standalone Generation Checkpoint (Gen-N).
+        Resets active LoRA adapter for subsequent evolutionary cycles.
+        """
+        import shutil
+        gen_dir = os.path.join(export_base_dir, f"synthetic-0.5b-gen{generation}")
+        print(f"\n[Generation Hopping] Merging LoRA into base model -> {gen_dir}...")
+        t0 = time.perf_counter()
+
+        # Load base model + active LoRA adapter
+        base_model = AutoModelForCausalLM.from_pretrained(
+            self.base_model_name,
+            torch_dtype=torch.float32,
+            trust_remote_code=True,
+        )
+        tokenizer = AutoTokenizer.from_pretrained(self.base_model_name, trust_remote_code=True)
+
+        peft_model = PeftModel.from_pretrained(base_model, self.checkpoint_dir)
+        # Merge low-rank delta matrices permanently into base weights
+        merged_model = peft_model.merge_and_unload()
+
+        # Save as standalone new foundation model
+        os.makedirs(gen_dir, exist_ok=True)
+        merged_model.save_pretrained(gen_dir)
+        tokenizer.save_pretrained(gen_dir)
+
+        # Clear out previous LoRA checkpoint so next generation trains fresh on new base
+        if os.path.exists(self.checkpoint_dir):
+            shutil.rmtree(self.checkpoint_dir)
+
+        elapsed = time.perf_counter() - t0
+        print(f"  ✓ Generation {generation} successfully baked and exported to '{gen_dir}' in {elapsed:.2f}s!\n")
+        
+        # Point trainer's base model to the newly baked model for next rounds
+        self.base_model_name = gen_dir
+        return gen_dir

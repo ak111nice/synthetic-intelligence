@@ -1,17 +1,19 @@
 """
-Continuous Autonomous RSI Daemon Loop.
-Runs perpetually until explicitly stopped:
-1. Dynamic problem generation with strict boundary assertions.
+Continuous Autonomous RSI Daemon Loop with Generational Packing & Invariant Scaffolding.
+Runs perpetually until explicitly stopped ("我没喊停不允许停"):
+1. Dynamic problem generation with strict function skeletons & boundary assertions.
 2. Daytime sandboxed execution & Hippocampal failure recording.
 3. Nighttime dreaming & Meta^n causal scaffolding synthesis.
 4. Physical LoRA parameter optimization (Tononi SHY regularized).
 5. Golden Invariant Monotonicity Regression Verification.
+6. Generational Packing & Promotion (LoRA merge_and_unload -> Gen-1, Gen-2, ...).
 """
 
 import sys
 import os
 import time
 import json
+import re
 import traceback
 from datetime import datetime
 
@@ -40,12 +42,45 @@ def log_msg(msg: str):
         f.write(formatted + "\n")
 
 
-def extract_code(text: str) -> str:
-    if "```python" in text:
-        return text.split("```python")[1].split("```")[0].strip()
-    elif "```" in text:
-        return text.split("```")[1].split("```")[0].strip()
-    return text.strip()
+def clean_and_assemble_code(raw_text: str, task: dict) -> str:
+    """
+    Robust code extractor with Meta^n structural scaffolding:
+    1. Extracts markdown blocks.
+    2. Strips terminal REPL markers (>>>).
+    3. Guarantees the function signature skeleton is properly assembled.
+    """
+    # 1. Extract markdown block
+    if "```python" in raw_text:
+        code = raw_text.split("```python")[1].split("```")[0].strip()
+    elif "```" in raw_text:
+        code = raw_text.split("```")[1].split("```")[0].strip()
+    else:
+        code = raw_text.strip()
+
+    # 2. Strip interactive python REPL lines
+    lines = []
+    for line in code.splitlines():
+        if line.strip().startswith(">>>") or line.strip().startswith("..."):
+            line = re.sub(r"^(\s*)(>>>|\.\.\.)\s*", r"\1", line)
+        lines.append(line)
+    code = "\n".join(lines).strip()
+
+    # 3. Check if function definition is present
+    entry_point = task.get("entry_point", "")
+    skeleton = task.get("skeleton", "")
+
+    if entry_point and f"def {entry_point}" not in code:
+        # Model only generated the body statements, prepend skeleton
+        indented_lines = []
+        for line in code.splitlines():
+            # If not indented, indent it
+            if line.strip() and not line.startswith(" ") and not line.startswith("\t"):
+                indented_lines.append("    " + line)
+            else:
+                indented_lines.append(line)
+        code = f"{skeleton}\n" + "\n".join(indented_lines)
+
+    return code.strip()
 
 
 def run_in_sandbox(code: str, test_code: str) -> tuple[bool, str]:
@@ -79,8 +114,9 @@ def evaluate_golden_invariants() -> float:
 
 def main():
     log_msg("=" * 80)
-    log_msg("STARTING CONTINUOUS AUTONOMOUS RSI DAEMON (PERPETUAL RUNTIME)")
+    log_msg("STARTING CONTINUOUS AUTONOMOUS RSI DAEMON (GEN-HOPPING ARCHITECTURE)")
     log_msg("Substrate: Qwen2.5-0.5B on Intel Core i5-14400 (32GB RAM)")
+    log_msg("Invariants: Function Skeleton Scaffolding + LoRA Merge Generational Baking")
     log_msg("=" * 80)
 
     # 1. Setup Architecture
@@ -96,13 +132,17 @@ def main():
     runner.load()
 
     epoch = 0
+    generation = 0
+    total_repairs_accumulated = 0
     total_tasks_evaluated = 0
     total_failures_logged = 0
     total_lora_trainings = 0
 
     scoreboard = {
         "start_time": datetime.now().isoformat(),
+        "generation": generation,
         "epochs_completed": 0,
+        "total_lora_trainings": 0,
         "history": [],
     }
 
@@ -111,7 +151,7 @@ def main():
     # PERPETUAL LOOP: "我没喊停不允许停"
     while True:
         epoch += 1
-        log_msg(f"\n{'='*30} EPOCH {epoch} START {'='*30}")
+        log_msg(f"\n{'='*30} EPOCH {epoch} (GEN-{generation}) START {'='*30}")
 
         # Step 1: Sample new tasks
         batch = generator.sample_batch(batch_size=2)
@@ -123,10 +163,15 @@ def main():
             total_tasks_evaluated += 1
             log_msg(f">> [Epoch {epoch}] Evaluating Task: '{task['name']}' ({task['category']})")
             
-            prompt = f"Write ONLY clean Python code. Do NOT write explanations.\nTask: {task['prompt']}"
+            prompt = (
+                f"You are a strict Python programmer.\n"
+                f"Task: {task['prompt']}\n"
+                f"Provide the complete Python function definition and body starting with:\n"
+                f"```python\n{task['skeleton']}\n"
+            )
             t0 = time.perf_counter()
             raw_output = runner.generate_action(prompt, max_new_tokens=180)
-            clean_code = extract_code(raw_output)
+            clean_code = clean_and_assemble_code(raw_output, task)
             elapsed = (time.perf_counter() - t0) * 1000.0
 
             action = ActionProposal(action_id=f"act_ep{epoch}_{task['id']}", target_subsystem="sandbox", command=clean_code)
@@ -164,10 +209,12 @@ def main():
                     f"Task: {task['prompt']}\n"
                     f"PREVIOUS FAILURE: {report.splitlines()[0]}\n"
                     f"INVARIANT RULE: {scaffold_layer.policy_instructions}\n"
-                    f"Handle all boundaries (empty, None, negative). Write ONLY clean Python code."
+                    f"CRITICAL: Handle boundary cases (None, empty, 0, negative values).\n"
+                    f"Provide the complete Python function starting with:\n"
+                    f"```python\n{task['skeleton']}\n"
                 )
                 repaired_raw = runner.generate_action(reflection_prompt, max_new_tokens=220)
-                repaired_code = extract_code(repaired_raw)
+                repaired_code = clean_and_assemble_code(repaired_raw, task)
                 
                 rep_ok, rep_report = run_in_sandbox(repaired_code, task["tests"])
                 if rep_ok:
@@ -181,6 +228,7 @@ def main():
             log_msg(f"\n>> [Synaptic Consolidation] Assimilating {len(epoch_repairs)} verified repairs into physical LoRA weights...")
             train_res = trainer.train_step(epoch_repairs, epochs=1)
             total_lora_trainings += 1
+            total_repairs_accumulated += len(epoch_repairs)
 
             # Dynamically hot-reload newly assimilated LoRA synaptic weights into inference model
             runner.reload_adapter()
@@ -193,11 +241,28 @@ def main():
             else:
                 log_msg("   ⚠️ Regression detected on core invariants! Rollback triggered.")
 
+            # Step 6: Generational Packing & Promotion ("打包融合" -> Gen-N)
+            # When >= 2 verified repairs have accumulated and golden invariants hold, bake into a new standalone model!
+            if total_repairs_accumulated >= 2 and golden_score >= 1.0:
+                generation += 1
+                log_msg(f"\n{'*'*80}")
+                log_msg(f"🚀 [GENERATIONAL HOPPING] MILESTONE REACHED: BAKING GENERATION {generation}...")
+                log_msg(f"   Permanent weight fusion via merge_and_unload()...")
+                log_msg(f"{'*'*80}")
+                
+                new_gen_path = trainer.bake_and_promote_generation(generation)
+                runner.switch_base_model(new_gen_path)
+                total_repairs_accumulated = 0
+                log_msg(f"✨ Model permanently upgraded to Generation {generation} (Substrate: {new_gen_path})!\n")
+
         # Update Scoreboard
         epoch_pass_rate = (epoch_passed / len(batch)) * 100
+        scoreboard["generation"] = generation
         scoreboard["epochs_completed"] = epoch
+        scoreboard["total_lora_trainings"] = total_lora_trainings
         scoreboard["history"].append({
             "epoch": epoch,
+            "generation": generation,
             "pass_rate": epoch_pass_rate,
             "repairs_consolidated": len(epoch_repairs),
             "timestamp": datetime.now().isoformat(),
@@ -206,7 +271,7 @@ def main():
         with open(SCOREBOARD_FILE, "w", encoding="utf-8") as f:
             json.dump(scoreboard, f, indent=2)
 
-        log_msg(f"--- Epoch {epoch} Complete. Baseline Pass Rate: {epoch_pass_rate:.1f}% | Total LoRA Updates: {total_lora_trainings} ---")
+        log_msg(f"--- Epoch {epoch} Complete (Gen-{generation}). Pass Rate: {epoch_pass_rate:.1f}% | Total LoRA Updates: {total_lora_trainings} ---")
         log_msg("Resting for 3 seconds before next cycle (Continuous Loop Active)...")
         time.sleep(3)
 
