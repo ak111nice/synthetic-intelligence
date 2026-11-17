@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bdca"
+version = "0.1.0"
+description = "Bio-Decoupled Cognitive Architecture (BDCA) for Invariant-Driven Self-Improvement"
+readme = "README.md"
+authors = [
+    { name = "ak111nice", email = "ak111nice@users.noreply.github.com" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.5.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+]
+deeplearning = [
+    "torch>=2.1.0",
+    "peft>=0.7.0",
+    "transformers>=4.36.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
